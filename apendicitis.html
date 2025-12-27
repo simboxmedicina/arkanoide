@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reto Quirúrgico: Apendicitis (Horizontal v2)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0056b3;
+            --secondary: #50e3c2;
+            --danger: #dc3545;
+            --success: #28a745;
+            --dark: #343a40;
+            --light: #f8f9fa;
+            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg-gradient);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            color: var(--dark);
+        }
+
+        #quiz-container {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 1100px; 
+            padding: 35px;
+            text-align: left;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center; 
+            text-align: center;
+        }
+
+        #question-count { font-weight: 600; color: #777; margin-bottom: 10px; font-size: 0.9rem; }
+        .progress-bar { height: 8px; background: #e9ecef; border-radius: 10px; width: 100%; max-width: 600px; overflow: hidden; }
+        #progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.5s cubic-bezier(0.4, 0.0, 0.2, 1); border-radius: 10px; }
+
+        .split-layout {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr; 
+            gap: 40px; 
+            align-items: center;
+        }
+
+        .question-side { order: 1; }
+        .image-side { order: 2; }
+
+        .image-container {
+            width: 100%;
+            padding-bottom: 100%; 
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 0; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            background-color: #e0e0e0;
+        }
+
+        #sprite-viewer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            /* RECUERDA: El nombre de tu imagen en español */
+            background-image: url('matriz_apendice.jpg'); 
+            background-repeat: no-repeat;
+            background-size: 500% 200%;
+            background-position: 0% 0%;
+            transition: background-position 0.4s ease-in-out;
+        }
+
+        h2 { 
+            color: var(--dark); 
+            font-size: 1.4rem; 
+            margin-bottom: 25px; 
+            line-height: 1.3; 
+            font-weight: 700; 
+        }
+
+        .options-grid { display: grid; gap: 12px; }
+        .option-btn {
+            background: white; border: 2px solid #e9ecef; padding: 15px 20px; border-radius: 14px; cursor: pointer;
+            font-size: 1rem; font-weight: 500; transition: all 0.25s ease; text-align: left; color: var(--dark);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.03); font-family: 'Poppins', sans-serif;
+        }
+        .option-btn:hover { border-color: var(--primary); background: #f8faff; transform: translateY(-2px); box-shadow: 0 5px 10px rgba(0, 86, 179, 0.1); }
+        .correct { background-color: var(--success) !important; color: white !important; border-color: var(--success) !important; }
+        .wrong { background-color: var(--danger) !important; color: white !important; border-color: var(--danger) !important; }
+        
+        #result-screen { display: none; animation: fadeIn 0.5s ease; text-align: center; }
+        .score-circle { width: 140px; height: 140px; border-radius: 50%; background: var(--primary); color: white; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; margin: 0 auto 30px; font-weight: 800; box-shadow: 0 10px 25px rgba(0, 86, 179, 0.3); }
+        #feedback-text { font-size: 1.2rem; color: #555; margin-bottom: 30px; }
+        .restart-btn { background: var(--dark); color: white; padding: 15px 35px; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 1.1rem; transition: all 0.2s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 900px) {
+            #quiz-container { max-width: 600px; text-align: center; }
+            .split-layout { grid-template-columns: 1fr; gap: 30px; }
+            .image-side { order: 1; }
+            .question-side { order: 2; }
+            h2 { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="quiz-container">
+    <div id="game-screen">
+        <div class="header">
+            <span id="question-count">Pregunta 1 de 10</span>
+            <div class="progress-bar"><div id="progress-fill"></div></div>
+        </div>
+        
+        <div class="split-layout">
+            <div class="question-side">
+                <h2 id="q-text">Cargando pregunta...</h2>
+                <div class="options-grid" id="options-container"></div>
+            </div>
+
+            <div class="image-side">
+                <div class="image-container">
+                    <div id="sprite-viewer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen">
+        <h1>¡Resultado Final!</h1>
+        <div class="score-circle" id="final-score">0/10</div>
+        <p id="feedback-text"></p>
+        <button class="restart-btn" onclick="location.reload()">Volver a intentar</button>
+    </div>
+</div>
+
+<script>
+    // --- SECCIÓN CORREGIDA: AHORA TODAS TIENEN 5 OPCIONES ---
+    const questions = [
+        // --- FILA 1 ---
+        {
+            q: "1. ¿Cuál es la causa más frecuente de obstrucción del lumen apendicular en adultos?",
+            pos: "0% 0%", 
+            options: ["Hiperplasia linfoide", "Fecalitos", "Parásitos", "Cuerpos extraños", "Tumores"], correct: 1
+        },
+        {
+            q: "2. El dolor de la apendicitis clásica suele iniciar de forma difusa en:",
+            pos: "25% 0%", 
+            options: ["Fosa ilíaca derecha", "Hipocondrio derecho", "Región epigástrica o periumbilical", "Fosa ilíaca izquierda", "Región lumbar"], correct: 2
+        },
+        {
+            q: "3. ¿Cómo se llama el punto de máxima sensibilidad dolorosa situado en la unión del tercio externo con los dos tercios internos de la línea espino-umbilical?",
+            pos: "50% 0%", 
+            options: ["Punto de Murphy", "Punto de Lanz", "Punto de McBurney", "Punto de Morris", "Punto de Lecene"], correct: 2
+        },
+        {
+            q: "4. El signo que consiste en dolor intenso a la descompresión brusca en FID (irritación peritoneal) se llama:",
+            pos: "75% 0%", 
+            options: ["Signo de Rovsing", "Signo de Blumberg", "Signo del Psoas", "Signo de Dunphy", "Signo del Obturador"], correct: 1
+        },
+        {
+            q: "5. ¿Cuál es el estudio de imagen inicial de elección ante sospecha de apendicitis en niños y embarazadas?",
+            pos: "100% 0%", 
+            options: ["Tomografía (TAC)", "Radiografía simple", "Ecografía abdominal", "Resonancia Magnética", "Laparoscopia diagnóstica"], correct: 2
+        },
+        // --- FILA 2 ---
+        {
+            q: "6. ¿Cuál es el hallazgo típico en el hemograma de un paciente con apendicitis aguda?",
+            pos: "0% 100%", 
+            options: ["Anemia ferropénica", "Leucocitosis con neutrofilia", "Trombocitosis", "Leucopenia severa", "Linfocitosis relativa"], correct: 1
+        },
+        {
+            q: "7. Macroscópicamente, ¿qué fase se caracteriza por edema, congestión vascular y serosa despulida?",
+            pos: "25% 100%", 
+            options: ["Fase Catarral (Edematosa)", "Fase Flegmonosa", "Fase Gangrenosa", "Fase Perforada", "Apendicitis Crónica"], correct: 0
+        },
+        {
+            q: "8. La presencia de colecciones purulentas (abscesos) alrededor del apéndice indica una fase:",
+            pos: "50% 100%", 
+            options: ["Fase Catarral", "Fase Flegmonosa", "Fase Gangrenosa", "Fase Perforada (Complicada)", "Apendicectomía previa"], correct: 3
+        },
+        {
+            q: "9. El signo del Psoas positivo (dolor al extender el muslo derecho) sugiere un apéndice en posición:",
+            pos: "75% 100%", 
+            options: ["Pélvica", "Preileal", "Retrocecal", "Subhepática", "Laterocecal"], correct: 2
+        },
+        {
+            q: "10. El tratamiento estándar (Gold Standard) para la apendicitis aguda no complicada es:",
+            pos: "100% 100%", 
+            options: ["Solo antibióticos IV", "Observación clínica", "Apendicectomía laparoscópica", "Drenaje percutáneo", "Reposo intestinal y analgesia"], correct: 2
+        }
+    ];
+    // ---------------------------------------------------------
+
+    let currentQuestion = 0;
+    let score = 0;
+    let answered = false;
+
+    const gameScreen = document.getElementById('game-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const qText = document.getElementById('q-text');
+    const spriteViewer = document.getElementById('sprite-viewer');
+    const optionsContainer = document.getElementById('options-container');
+    const progressFill = document.getElementById('progress-fill');
+    const qCount = document.getElementById('question-count');
+
+    function loadQuestion() {
+        answered = false;
+        const q = questions[currentQuestion];
+        qText.innerText = q.q;
+        spriteViewer.style.backgroundPosition = q.pos;
+        qCount.innerText = `Pregunta ${currentQuestion + 1} de 10`;
+        progressFill.style.width = `${((currentQuestion) / 10) * 100}%`;
+        
+        optionsContainer.innerHTML = '';
+        q.options.forEach((opt, index) => {
+            const btn = document.createElement('button');
+            btn.innerText = opt;
+            btn.classList.add('option-btn');
+            btn.onclick = () => checkAnswer(index, btn);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selected, btn) {
+        if(answered) return;
+        answered = true;
+        const correct = questions[currentQuestion].correct;
+        const allBtns = document.querySelectorAll('.option-btn');
+        allBtns.forEach(b => b.style.pointerEvents = 'none');
+
+        if(selected === correct) {
+            score++;
+            btn.classList.add('correct');
+        } else {
+            btn.classList.add('wrong');
+            allBtns[correct].classList.add('correct');
+        }
+
+        setTimeout(() => {
+            currentQuestion++;
+            if(currentQuestion < questions.length) loadQuestion();
+            else showResults();
+        }, 1500);
+    }
+
+    function showResults() {
+        gameScreen.style.display = 'none';
+        resultScreen.style.display = 'block';
+        progressFill.style.width = '100%';
+        document.getElementById('final-score').innerText = `${score}/10`;
+        let feedback = score >= 8 ? "¡Excelente trabajo, Doctor(a)! Dominas el tema." : (score >= 6 ? "¡Aprobado! Pero repasa los detalles clínicos." : "Sigue estudiando la anatomía y presentación clínica.");
+        document.getElementById('feedback-text').innerText = feedback;
+    }
+
+    loadQuestion();
+</script>
+</body>
+</html>
