@@ -51,44 +51,52 @@
 
     btn.disabled = true;
     loader.style.display = "block";
-    resultadoDiv.innerHTML = "";
+    resultadoDiv.innerHTML = "Conectando con Google Gemini...";
 
-    // IMPORTANTE: Asegúrate de que la URL sea exactamente esta
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // URL corregida y formateada correctamente
+    const model = "gemini-1.5-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const prompt = `Analiza este video de YouTube: ${videoUrl}. Genera 10 preguntas de opción múltiple (A, B, C, D) basadas en el video. Devuelve la respuesta en formato HTML usando <h3> para la pregunta y <ul> para las opciones.`;
+    const prompt = {
+        contents: [{
+            parts: [{
+                text: `Analiza este video de YouTube: ${videoUrl}. Genera un quiz de 10 preguntas de opción múltiple en español. Formatea el resultado directamente con etiquetas HTML (usando <h3> para preguntas y <ul> para opciones). Indica la respuesta correcta.`
+            }]
+        }]
+    };
 
     try {
         const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
+            body: JSON.stringify(prompt)
         });
 
         const data = await response.json();
 
-        // 1. Verificamos si la respuesta del servidor fue un error (como el 404)
+        // Si el servidor responde con error (404, 400, etc)
         if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${data.error?.message || 'No se encontró la ruta'}`);
+            console.error("Error de la API:", data);
+            throw new Error(data.error?.message || `Error ${response.status}: No se encontró el recurso.`);
         }
 
-        // 2. Verificamos si la estructura de Gemini es la correcta antes de leer el [0]
+        // Verificación de seguridad antes de leer los datos
         if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-            const textoGenerado = data.candidates[0].content.parts[0].text;
-            resultadoDiv.innerHTML = textoGenerado.replace(/```html|```/g, "");
+            let texto = data.candidates[0].content.parts[0].text;
+            // Limpiar Markdown si la IA lo incluye
+            texto = texto.replace(/```html|```/g, "");
+            resultadoDiv.innerHTML = texto;
         } else {
-            throw new Error("La IA no devolvió resultados. Intenta con otro video.");
+            throw new Error("La IA no devolvió el formato esperado. Intenta con otro video.");
         }
 
     } catch (error) {
-        console.error("Error detallado:", error);
+        console.error("Error en el proceso:", error);
         resultadoDiv.innerHTML = `
-            <div style="color:red; background:#fff0f0; padding:15px; border:1px solid red; border-radius:8px;">
-                <strong>Ocurrió un error:</strong><br>
+            <div style="color:red; background:#fee; padding:15px; border:1px solid red; border-radius:8px;">
+                <strong>¡Atención!</strong><br>
                 ${error.message}<br><br>
-                <small>Verifica que tu API Key sea válida y que no tenga espacios.</small>
+                <small>Asegúrate de que tu API Key sea de <b>Google AI Studio</b> y no de Google Cloud convencional.</small>
             </div>`;
     } finally {
         btn.disabled = false;
@@ -100,3 +108,4 @@
 </body>
 
 </html>
+
