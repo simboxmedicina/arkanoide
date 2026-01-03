@@ -37,7 +37,7 @@
 </div>
 
 <script>
-    async function generarPreguntas() {
+async function generarPreguntas() {
     const apiKey = document.getElementById('apiKey').value.trim();
     const videoUrl = document.getElementById('videoUrl').value.trim();
     const btn = document.getElementById('btnGenerar');
@@ -51,16 +51,18 @@
 
     btn.disabled = true;
     loader.style.display = "block";
-    resultadoDiv.innerHTML = "Conectando con Google Gemini...";
+    resultadoDiv.innerHTML = "Conectando con la versión estable de Gemini...";
 
-    // URL corregida y formateada correctamente
-    const model = "gemini-1.5-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // CAMBIO CLAVE: Usamos 'v1' en lugar de 'v1beta'
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-    const prompt = {
+    const requestBody = {
         contents: [{
             parts: [{
-                text: `Analiza este video de YouTube: ${videoUrl}. Genera un quiz de 10 preguntas de opción múltiple en español. Formatea el resultado directamente con etiquetas HTML (usando <h3> para preguntas y <ul> para opciones). Indica la respuesta correcta.`
+                text: `Analiza este video de YouTube: ${videoUrl}. 
+                Crea 10 preguntas de opción múltiple en español basadas en su contenido. 
+                Devuelve el resultado directamente en HTML usando etiquetas <h3> para la pregunta y <ul>/<li> para las opciones. 
+                Marca la respuesta correcta en negrita.`
             }]
         }]
     };
@@ -69,34 +71,32 @@
         const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(prompt)
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
 
-        // Si el servidor responde con error (404, 400, etc)
         if (!response.ok) {
-            console.error("Error de la API:", data);
-            throw new Error(data.error?.message || `Error ${response.status}: No se encontró el recurso.`);
+            // Si Google nos da un error, lo mostramos detalladamente
+            throw new Error(data.error?.message || `Error ${response.status}`);
         }
 
-        // Verificación de seguridad antes de leer los datos
-        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-            let texto = data.candidates[0].content.parts[0].text;
-            // Limpiar Markdown si la IA lo incluye
-            texto = texto.replace(/```html|```/g, "");
-            resultadoDiv.innerHTML = texto;
+        if (data.candidates && data.candidates[0].content) {
+            let textoGenerado = data.candidates[0].content.parts[0].text;
+            // Quitamos los bloques de código markdown que a veces pone la IA
+            textoGenerado = textoGenerado.replace(/```html|```/g, "");
+            resultadoDiv.innerHTML = textoGenerado;
         } else {
-            throw new Error("La IA no devolvió el formato esperado. Intenta con otro video.");
+            resultadoDiv.innerHTML = "La IA no devolvió contenido. Intenta con un video que tenga subtítulos habilitados.";
         }
 
     } catch (error) {
-        console.error("Error en el proceso:", error);
+        console.error("Error completo:", error);
         resultadoDiv.innerHTML = `
-            <div style="color:red; background:#fee; padding:15px; border:1px solid red; border-radius:8px;">
-                <strong>¡Atención!</strong><br>
+            <div style="color:red; background:#fee; padding:20px; border:2px solid red; border-radius:10px;">
+                <strong>Error de Configuración:</strong><br>
                 ${error.message}<br><br>
-                <small>Asegúrate de que tu API Key sea de <b>Google AI Studio</b> y no de Google Cloud convencional.</small>
+                <p>Si el error persiste, asegúrate de que el video sea público y que tu API Key no tenga restricciones de IP en Google Cloud.</p>
             </div>`;
     } finally {
         btn.disabled = false;
@@ -108,4 +108,5 @@
 </body>
 
 </html>
+
 
