@@ -37,38 +37,24 @@
 </div>
 
 <script>
-// Función para verificar qué modelos tienes permitidos
-async function listarModelos() {
-    const apiKey = document.getElementById('apiKey').value.trim();
-    if (!apiKey) return alert("Pega tu clave primero");
-    
-    try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        const data = await res.json();
-        console.log("Modelos disponibles:", data);
-        alert("Revisa la consola (F12). Google dice que puedes usar: " + 
-              data.models.map(m => m.name.split('/').pop()).join(", "));
-    } catch (e) {
-        alert("Error al listar modelos: " + e.message);
-    }
-}
-
 async function generarPreguntas() {
     const apiKey = document.getElementById('apiKey').value.trim();
     const videoUrl = document.getElementById('videoUrl').value.trim();
-    const btn = document.getElementById('btnGenerar');
     const resultadoDiv = document.getElementById('resultado');
+    const loader = document.getElementById('loader');
 
-    btn.disabled = true;
-    resultadoDiv.innerHTML = "Probando conexión con gemini-1.5-flash-latest...";
+    if (!apiKey) return alert("Pega tu API Key de AI Studio");
 
-    // Probaremos con la versión 'latest' que suele saltarse el error de 'not found'
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    loader.style.display = "block";
+    resultadoDiv.innerHTML = "Intentando conectar con Gemini...";
 
-    const prompt = {
+    // Usaremos el modelo 'gemini-1.5-flash' que es el más compatible con videos
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const body = {
         contents: [{
             parts: [{
-                text: `Genera 10 preguntas de opción múltiple sobre este video: ${videoUrl}. Responde en HTML.`
+                text: `Analiza este video de YouTube: ${videoUrl}. Genera 10 preguntas de opción múltiple en español con formato HTML (h3 y ul).`
             }]
         }]
     };
@@ -77,28 +63,33 @@ async function generarPreguntas() {
         const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(prompt)
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
 
-        if (data.error) {
-            // Si falla el flash, intentamos con el modelo Pro por si tu cuenta tiene otra prioridad
-            resultadoDiv.innerHTML = "Flash falló, intentando con gemini-pro...";
-            throw new Error(data.error.message);
+        // Si hay error en la respuesta, lo capturamos antes de que rompa el código
+        if (!response.ok || data.error) {
+            throw new Error(data.error?.message || `Error del servidor: ${response.status}`);
         }
 
-        let texto = data.candidates[0].content.parts[0].text;
-        resultadoDiv.innerHTML = texto.replace(/```html|```/g, "");
+        // Validación de seguridad para evitar el "reading 0"
+        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+            let texto = data.candidates[0].content.parts[0].text;
+            resultadoDiv.innerHTML = texto.replace(/```html|```/g, "");
+        } else {
+            resultadoDiv.innerHTML = "La IA conectó pero no devolvió datos. Prueba con otro video.";
+        }
 
     } catch (error) {
-        resultadoDiv.innerHTML = `<div style="color:red; border:1px solid red; padding:10px;">
-            <strong>Error Crítico:</strong> ${error.message}<br><br>
-            <em>Causa probable:</em> Tu API Key es de Google Cloud y no de <strong>AI Studio</strong>, 
-            o el modelo Flash aún no está activo en tu zona para peticiones directas.
-        </div>`;
+        console.error("Error capturado:", error);
+        resultadoDiv.innerHTML = `
+            <div style="color:red; border:1px solid red; padding:15px; border-radius:10px;">
+                <strong>Error Detectado:</strong> ${error.message}<br><br>
+                <p><strong>Solución:</strong> Ve a <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>, genera una NUEVA clave y asegúrate de que no tenga espacios al pegarla.</p>
+            </div>`;
     } finally {
-        btn.disabled = false;
+        loader.style.display = "none";
     }
 }
 </script>
@@ -106,6 +97,7 @@ async function generarPreguntas() {
 </body>
 
 </html>
+
 
 
 
