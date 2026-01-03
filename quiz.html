@@ -37,32 +37,38 @@
 </div>
 
 <script>
+// Función para verificar qué modelos tienes permitidos
+async function listarModelos() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) return alert("Pega tu clave primero");
+    
+    try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        const data = await res.json();
+        console.log("Modelos disponibles:", data);
+        alert("Revisa la consola (F12). Google dice que puedes usar: " + 
+              data.models.map(m => m.name.split('/').pop()).join(", "));
+    } catch (e) {
+        alert("Error al listar modelos: " + e.message);
+    }
+}
+
 async function generarPreguntas() {
     const apiKey = document.getElementById('apiKey').value.trim();
     const videoUrl = document.getElementById('videoUrl').value.trim();
     const btn = document.getElementById('btnGenerar');
-    const loader = document.getElementById('loader');
     const resultadoDiv = document.getElementById('resultado');
 
-    if (!apiKey || !videoUrl) {
-        alert("Por favor, completa la API Key y el link del video.");
-        return;
-    }
-
     btn.disabled = true;
-    loader.style.display = "block";
-    resultadoDiv.innerHTML = "Conectando con la versión estable de Gemini...";
+    resultadoDiv.innerHTML = "Probando conexión con gemini-1.5-flash-latest...";
 
-    // CAMBIO CLAVE: Usamos 'v1' en lugar de 'v1beta'
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // Probaremos con la versión 'latest' que suele saltarse el error de 'not found'
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
-    const requestBody = {
+    const prompt = {
         contents: [{
             parts: [{
-                text: `Analiza este video de YouTube: ${videoUrl}. 
-                Crea 10 preguntas de opción múltiple en español basadas en su contenido. 
-                Devuelve el resultado directamente en HTML usando etiquetas <h3> para la pregunta y <ul>/<li> para las opciones. 
-                Marca la respuesta correcta en negrita.`
+                text: `Genera 10 preguntas de opción múltiple sobre este video: ${videoUrl}. Responde en HTML.`
             }]
         }]
     };
@@ -71,36 +77,28 @@ async function generarPreguntas() {
         const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(prompt)
         });
 
         const data = await response.json();
 
-        if (!response.ok) {
-            // Si Google nos da un error, lo mostramos detalladamente
-            throw new Error(data.error?.message || `Error ${response.status}`);
+        if (data.error) {
+            // Si falla el flash, intentamos con el modelo Pro por si tu cuenta tiene otra prioridad
+            resultadoDiv.innerHTML = "Flash falló, intentando con gemini-pro...";
+            throw new Error(data.error.message);
         }
 
-        if (data.candidates && data.candidates[0].content) {
-            let textoGenerado = data.candidates[0].content.parts[0].text;
-            // Quitamos los bloques de código markdown que a veces pone la IA
-            textoGenerado = textoGenerado.replace(/```html|```/g, "");
-            resultadoDiv.innerHTML = textoGenerado;
-        } else {
-            resultadoDiv.innerHTML = "La IA no devolvió contenido. Intenta con un video que tenga subtítulos habilitados.";
-        }
+        let texto = data.candidates[0].content.parts[0].text;
+        resultadoDiv.innerHTML = texto.replace(/```html|```/g, "");
 
     } catch (error) {
-        console.error("Error completo:", error);
-        resultadoDiv.innerHTML = `
-            <div style="color:red; background:#fee; padding:20px; border:2px solid red; border-radius:10px;">
-                <strong>Error de Configuración:</strong><br>
-                ${error.message}<br><br>
-                <p>Si el error persiste, asegúrate de que el video sea público y que tu API Key no tenga restricciones de IP en Google Cloud.</p>
-            </div>`;
+        resultadoDiv.innerHTML = `<div style="color:red; border:1px solid red; padding:10px;">
+            <strong>Error Crítico:</strong> ${error.message}<br><br>
+            <em>Causa probable:</em> Tu API Key es de Google Cloud y no de <strong>AI Studio</strong>, 
+            o el modelo Flash aún no está activo en tu zona para peticiones directas.
+        </div>`;
     } finally {
         btn.disabled = false;
-        loader.style.display = "none";
     }
 }
 </script>
@@ -108,5 +106,6 @@ async function generarPreguntas() {
 </body>
 
 </html>
+
 
 
