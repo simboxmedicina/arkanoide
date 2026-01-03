@@ -1,221 +1,57 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arkanoid Clásico</title>
-    <style>
-        body {
-            background-color: #1a1a1a;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
-        }
-        canvas {
-            background: #000;
-            border: 4px solid #444;
-            border-radius: 5px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            display: block;
-        }
-        .stats {
-            display: flex;
-            justify-content: space-between;
-            width: 480px;
-            margin-bottom: 10px;
-            font-size: 20px;
-            font-weight: bold;
-        }
-        #mensaje {
-            margin-top: 15px;
-            font-size: 1.2rem;
-            color: #aaa;
-        }
-    </style>
-</head>
-<body>
+async function generarPreguntas() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const videoUrl = document.getElementById('videoUrl').value.trim();
+    const btn = document.getElementById('btnGenerar');
+    const loader = document.getElementById('loader');
+    const resultadoDiv = document.getElementById('resultado');
 
-    <div class="stats">
-        <span>Puntos: <span id="score">0</span></span>
-        <span>Vidas: <span id="lives">3</span></span>
-    </div>
+    if (!apiKey) { alert("Por favor, pega tu API Key."); return; }
+    if (!videoUrl) { alert("Por favor, pega un link de YouTube."); return; }
 
-    <canvas id="myCanvas" width="480" height="320"></canvas>
+    btn.disabled = true;
+    loader.style.display = "block";
+    resultadoDiv.innerHTML = "";
 
-    <div id="mensaje">Usa las flechas ← → o el ratón para moverte<a href="apendicitis.html">apendicitis</a>a</div>
+    // Prompt optimizado para que Gemini no se confunda
+    const promptTexto = `Actúa como un experto en educación médica. Analiza el contenido de este video de YouTube: ${videoUrl}. 
+    Crea un cuestionario de 10 preguntas de opción múltiple con 4 opciones cada una. 
+    Al final de cada pregunta, escribe 'Respuesta correcta: [letra]'. 
+    Formatea todo el contenido usando etiquetas HTML (h3 para preguntas y ul/li para opciones).`;
 
-    <script>
-        const canvas = document.getElementById("myCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreDisplay = document.getElementById("score");
-        const livesDisplay = document.getElementById("lives");
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: promptTexto }] }]
+            })
+        });
 
-        // Configuración de la bola
-        let ballRadius = 8;
-        let x = canvas.width / 2;
-        let y = canvas.height - 30;
-        let dx = 3;
-        let dy = -3;
+        const data = await response.json();
 
-        // Configuración de la paleta (Paddle)
-        const paddleHeight = 12;
-        const paddleWidth = 75;
-        let paddleX = (canvas.width - paddleWidth) / 2;
-
-        // Controles
-        let rightPressed = false;
-        let leftPressed = false;
-
-        // Configuración de ladrillos
-        const brickRowCount = 3;
-        const brickColumnCount = 5;
-        const brickWidth = 75;
-        const brickHeight = 20;
-        const brickPadding = 10;
-        const brickOffsetTop = 30;
-        const brickOffsetLeft = 30;
-
-        let score = 0;
-        let lives = 3;
-
-        const bricks = [];
-        for (let c = 0; c < brickColumnCount; c++) {
-            bricks[c] = [];
-            for (let r = 0; r < brickRowCount; r++) {
-                bricks[c][r] = { x: 0, y: 0, status: 1 };
-            }
+        if (data.error) {
+            throw new Error(`Código ${data.error.code}: ${data.error.message}`);
         }
 
-        // Detectar teclas
-        document.addEventListener("keydown", keyDownHandler, false);
-        document.addEventListener("keyup", keyUpHandler, false);
-        document.addEventListener("mousemove", mouseMoveHandler, false);
-
-        function keyDownHandler(e) {
-            if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
-            else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
+        if (data.candidates && data.candidates[0].content) {
+            let texto = data.candidates[0].content.parts[0].text;
+            // Limpiamos posibles bloques de código que la IA a veces agrega
+            texto = texto.replace(/```html|```/g, "");
+            resultadoDiv.innerHTML = texto;
+        } else {
+            resultadoDiv.innerHTML = "La IA no pudo procesar este video. Intenta con otro link.";
         }
-
-        function keyUpHandler(e) {
-            if (e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
-            else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
-        }
-
-        function mouseMoveHandler(e) {
-            const relativeX = e.clientX - canvas.offsetLeft;
-            if (relativeX > 0 && relativeX < canvas.width) {
-                paddleX = relativeX - paddleWidth / 2;
-            }
-        }
-
-        function collisionDetection() {
-            for (let c = 0; c < brickColumnCount; c++) {
-                for (let r = 0; r < brickRowCount; r++) {
-                    const b = bricks[c][r];
-                    if (b.status === 1) {
-                        if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
-                            dy = -dy;
-                            b.status = 0;
-                            score++;
-                            scoreDisplay.innerText = score;
-                            if (score === brickRowCount * brickColumnCount) {
-                                alert("¡FELICIDADES, GANASTE!");
-                                document.location.reload();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        function drawBall() {
-            ctx.beginPath();
-            ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
-            ctx.fillStyle = "#00DDFF";
-            ctx.fill();
-            ctx.closePath();
-        }
-
-        function drawPaddle() {
-            ctx.beginPath();
-            ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
-            ctx.fillStyle = "#FFCC00";
-            ctx.fill();
-            ctx.closePath();
-        }
-
-        function drawBricks() {
-            for (let c = 0; c < brickColumnCount; c++) {
-                for (let r = 0; r < brickRowCount; r++) {
-                    if (bricks[c][r].status === 1) {
-                        const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
-                        const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
-                        bricks[c][r].x = brickX;
-                        bricks[c][r].y = brickY;
-                        ctx.beginPath();
-                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
-                        ctx.fillStyle = `hsl(${c * 40}, 70%, 50%)`;
-                        ctx.fill();
-                        ctx.closePath();
-                    }
-                }
-            }
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawBricks();
-            drawBall();
-            drawPaddle();
-            collisionDetection();
-
-            // Rebotar en paredes laterales
-            if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-                dx = -dx;
-            }
-            // Rebotar en techo
-            if (y + dy < ballRadius) {
-                dy = -dy;
-            } 
-            // Lógica de caída (suelo o paleta)
-            else if (y + dy > canvas.height - ballRadius) {
-                if (x > paddleX && x < paddleX + paddleWidth) {
-                    dy = -dy;
-                } else {
-                    lives--;
-                    livesDisplay.innerText = lives;
-                    if (!lives) {
-                        alert("GAME OVER");
-                        document.location.reload();
-                    } else {
-                        x = canvas.width / 2;
-                        y = canvas.height - 30;
-                        dx = 3;
-                        dy = -3;
-                        paddleX = (canvas.width - paddleWidth) / 2;
-                    }
-                }
-            }
-
-            // Movimiento de la paleta
-            if (rightPressed && paddleX < canvas.width - paddleWidth) {
-                paddleX += 7;
-            } else if (leftPressed && paddleX > 0) {
-                paddleX -= 7;
-            }
-
-            x += dx;
-            y += dy;
-            requestAnimationFrame(draw);
-        }
-
-        draw();
-    </script>
-</body>
-</html>
+        
+    } catch (error) {
+        resultadoDiv.innerHTML = `<div style="border:2px solid red; padding:15px; color:red;">
+            <strong>ERROR DETECTADO:</strong><br>
+            ${error.message} <br><br>
+            <em>Tip: Si dice '403', tu clave ya no sirve. Genera una nueva y NO la subas al código de GitHub.</em>
+        </div>`;
+    } finally {
+        btn.disabled = false;
+        loader.style.display = "none";
+    }
+}
